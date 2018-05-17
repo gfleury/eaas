@@ -64,7 +64,7 @@ func (s *S) TestAddReservedName(c *check.C) {
 }
 
 func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
-	body := strings.NewReader("app-host=localhost")
+	body := strings.NewReader("app-name=appname")
 	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
 	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
@@ -83,13 +83,13 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 	data := map[string]string{}
 	json.Unmarshal(result, &data)
 	c.Assert(data["ETCD_HOSTS"], check.Equals, "127.0.0.1:2379")
-	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/myapp")
-	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/myapp")
+	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/appname")
+	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/appname")
 	c.Assert(data["ETCD_USER"], check.Not(check.HasLen), 0)
 	c.Assert(data["ETCD_PASSWORD"], check.Not(check.HasLen), 0)
 	coll := collection()
 	expected := dbBind{
-		AppHost:  "localhost",
+		AppHost:  "appname",
 		Name:     "myapp",
 		User:     data["ETCD_USER"],
 		Password: data["ETCD_PASSWORD"],
@@ -103,7 +103,7 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 }
 
 func (s *S) TestBind(c *check.C) {
-	body := strings.NewReader("app-host=localhost")
+	body := strings.NewReader("app-name=appname")
 	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
 	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
@@ -124,8 +124,8 @@ func (s *S) TestBind(c *check.C) {
 	data := map[string]string{}
 	json.Unmarshal(result, &data)
 	c.Assert(data["ETCD_HOSTS"], check.Equals, publicHost)
-	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/myapp")
-	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/myapp")
+	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/appname")
+	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/appname")
 	c.Assert(data["ETCD_USER"], check.Not(check.HasLen), 0)
 	c.Assert(data["ETCD_PASSWORD"], check.Not(check.HasLen), 0)
 	tlsInfo := transport.TLSInfo{
@@ -156,7 +156,7 @@ func (s *S) TestBindNoAppHost(c *check.C) {
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
 	c.Assert(recorder.Code, check.Equals, http.StatusBadRequest)
-	c.Assert(recorder.Body.String(), check.Equals, "Missing app-host")
+	c.Assert(recorder.Body.String(), check.Equals, "Missing app-name")
 }
 
 func (s *S) TestUnbind(c *check.C) {

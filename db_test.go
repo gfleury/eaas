@@ -60,7 +60,7 @@ func (s *S) TestCoalesceEnv(c *check.C) {
 }
 
 func (s *S) TestDBNameDefaultValue(c *check.C) {
-	c.Assert(dbName(), check.Equals, "mongoapi")
+	c.Assert(dbName(), check.Equals, "eaas")
 }
 
 func (s *S) TestDBNameEnvVar(c *check.C) {
@@ -71,7 +71,7 @@ func (s *S) TestDBNameEnvVar(c *check.C) {
 
 func (s *S) TestCollection(c *check.C) {
 	coll := collection()
-	c.Assert(coll.Database.Name, check.Equals, "mongoapi")
+	c.Assert(coll.Database.Name, check.Equals, "eaas")
 	err := coll.Database.Session.Ping()
 	c.Assert(err, check.IsNil)
 }
