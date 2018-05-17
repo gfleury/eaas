@@ -36,10 +36,10 @@ func etcdSession() *EtcdClient {
 	return etcdSess
 }
 
-func bind(name, appHost string) (env, error) {
+func bind(name, appName string) (env, error) {
 	locker.Lock(name)
 	defer locker.Unlock(name)
-	bind, err := newBind(name, appHost)
+	bind, err := newBind(name, appName)
 	if err != nil {
 		return nil, err
 	}
@@ -52,21 +52,21 @@ func bind(name, appHost string) (env, error) {
 		"ETCD_HOSTS":              hosts,
 		"ETCD_USER":               bind.User,
 		"ETCD_PASSWORD":           bind.Password,
-		"ETCD_APP_SCHEMA_PATH":    fmt.Sprintf(configPath, name),
-		"ETCD_SECRET_SCHEMA_PATH": fmt.Sprintf(secretPath, name),
+		"ETCD_APP_SCHEMA_PATH":    fmt.Sprintf(configPath, appName),
+		"ETCD_SECRET_SCHEMA_PATH": fmt.Sprintf(secretPath, appName),
 	}
 
 	return env(data), nil
 }
 
-func newBind(name, appHost string) (dbBind, error) {
+func newBind(name, appName string) (dbBind, error) {
 	password := newPassword()
-	username := name + newPassword()[:8]
-	err := addUser(name, username, password)
+	username := appName + newPassword()[:8]
+	err := addUser(appName, username, password)
 	if err != nil {
 		return dbBind{}, err
 	}
-	item := dbBind{AppHost: appHost, User: username, Name: name, Password: password}
+	item := dbBind{AppHost: appName, User: username, Name: name, Password: password}
 	err = collection().Insert(item)
 	if err != nil {
 		return dbBind{}, err
@@ -115,11 +115,11 @@ func addUser(name, username, password string) error {
 	return err
 }
 
-func unbind(name, appHost string) error {
+func unbind(name, appName string) error {
 	locker.Lock(name)
 	defer locker.Unlock(name)
 	coll := collection()
-	bind := dbBind{Name: name, AppHost: appHost}
+	bind := dbBind{Name: name, AppHost: appName}
 	err := coll.Find(bind).One(&bind)
 	if err != nil {
 		return err

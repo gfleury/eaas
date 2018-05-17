@@ -25,13 +25,13 @@ func BindApp(c *gin.Context) {
 	r := c.Request
 	w := c.Writer
 	name := c.Param("name")
-	appHost := r.FormValue("app-host")
-	if appHost == "" {
+	appName := r.FormValue("app-name")
+	if appName == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "Missing app-host")
+		fmt.Fprint(w, "Missing app-name")
 		return
 	}
-	env, err := bind(name, appHost)
+	env, err := bind(name, appName)
 	if err != nil {
 		c.AbortWithError(500, err)
 		return
@@ -52,8 +52,9 @@ func UnbindApp(c *gin.Context) {
 	w := c.Writer
 	r.Method = "POST"
 	name := c.Param("name")
-	appHost := r.FormValue("app-host")
-	err := unbind(name, appHost)
+	//appHost := r.FormValue("app-host")
+	appName := r.FormValue("app-name")
+	err := unbind(name, appName)
 	if err != nil {
 		c.AbortWithError(500, err)
 		return
