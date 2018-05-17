@@ -1,1 +1,1 @@
-web: ./mongoapi -bind 0.0.0.0:$PORT
+web: ./eaas -bind 0.0.0.0:$PORT

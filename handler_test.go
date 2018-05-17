@@ -1,10 +1,7 @@
-// Copyright 2015 mongoapi authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,8 +12,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/pkg/transport"
+
 	"gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -67,7 +66,7 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	os.Setenv("MONGODB_PUBLIC_URI", "")
+	os.Setenv("MONGODB_URI", "")
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
 	defer func() {
@@ -80,18 +79,17 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 	c.Assert(err, check.IsNil)
 	data := map[string]string{}
 	json.Unmarshal(result, &data)
-	c.Assert(data["MONGODB_HOSTS"], check.Equals, "127.0.0.1:27017")
-	c.Assert(data["MONGODB_DATABASE_NAME"], check.Equals, "myapp")
-	c.Assert(data["MONGODB_USER"], check.Not(check.HasLen), 0)
-	c.Assert(data["MONGODB_PASSWORD"], check.Not(check.HasLen), 0)
-	expectedString := fmt.Sprintf("mongodb://%s:%s@127.0.0.1:27017/myapp", data["MONGODB_USER"], data["MONGODB_PASSWORD"])
-	c.Assert(data["MONGODB_CONNECTION_STRING"], check.Equals, expectedString)
+	c.Assert(data["ETCD_HOSTS"], check.Equals, "127.0.0.1:2379")
+	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/myapp")
+	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/myapp")
+	c.Assert(data["ETCD_USER"], check.Not(check.HasLen), 0)
+	c.Assert(data["ETCD_PASSWORD"], check.Not(check.HasLen), 0)
 	coll := collection()
 	expected := dbBind{
 		AppHost:  "localhost",
 		Name:     "myapp",
-		User:     data["MONGODB_USER"],
-		Password: data["MONGODB_PASSWORD"],
+		User:     data["ETCD_USER"],
+		Password: data["ETCD_PASSWORD"],
 	}
 	var bind dbBind
 	q := bson.M{"name": "myapp"}
@@ -101,38 +99,13 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 	c.Assert(bind, check.DeepEquals, expected)
 }
 
-func (s *S) TestBindWithReplicaSet(c *check.C) {
-	body := strings.NewReader("app-host=localhost")
-	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
-	c.Assert(err, check.IsNil)
-	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	publicHost := "mongoapi.com:27017"
-	os.Setenv("MONGODB_PUBLIC_URI", publicHost)
-	os.Setenv("MONGODB_REPLICA_SET", "tsuru")
-	recorder := httptest.NewRecorder()
-	s.muxer.ServeHTTP(recorder, request)
-	defer func() {
-		database := session().DB("myapp")
-		database.RemoveUser("myapp")
-		database.DropDatabase()
-		collection().Remove(bson.M{"name": "myapp"})
-	}()
-	c.Assert(recorder.Code, check.Equals, http.StatusCreated)
-	var data map[string]string
-	err = json.NewDecoder(recorder.Body).Decode(&data)
-	c.Assert(err, check.IsNil)
-	c.Assert(data["MONGODB_REPLICA_SET"], check.Equals, "tsuru")
-	expectedString := fmt.Sprintf("mongodb://%s:%s@%s/myapp?replicaSet=tsuru", data["MONGODB_USER"], data["MONGODB_PASSWORD"], publicHost)
-	c.Assert(data["MONGODB_CONNECTION_STRING"], check.Equals, expectedString)
-}
-
 func (s *S) TestBind(c *check.C) {
 	body := strings.NewReader("app-host=localhost")
 	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	publicHost := "mongoapi.com:27017"
-	os.Setenv("MONGODB_PUBLIC_URI", publicHost)
+	publicHost := "127.0.0.1:2379"
+	os.Setenv("ETCD_URI", publicHost)
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
 	defer func() {
@@ -146,22 +119,28 @@ func (s *S) TestBind(c *check.C) {
 	c.Assert(err, check.IsNil)
 	data := map[string]string{}
 	json.Unmarshal(result, &data)
-	c.Assert(data["MONGODB_HOSTS"], check.Equals, publicHost)
-	c.Assert(data["MONGODB_DATABASE_NAME"], check.Equals, "myapp")
-	c.Assert(data["MONGODB_USER"], check.Not(check.HasLen), 0)
-	c.Assert(data["MONGODB_PASSWORD"], check.Not(check.HasLen), 0)
-	info := mgo.DialInfo{
-		Addrs:    []string{"localhost:27017"},
-		Database: data["MONGODB_DATABASE_NAME"],
-		Username: data["MONGODB_USER"],
-		Password: data["MONGODB_PASSWORD"],
+	c.Assert(data["ETCD_HOSTS"], check.Equals, publicHost)
+	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/myapp")
+	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/myapp")
+	c.Assert(data["ETCD_USER"], check.Not(check.HasLen), 0)
+	c.Assert(data["ETCD_PASSWORD"], check.Not(check.HasLen), 0)
+	tlsInfo := transport.TLSInfo{
+		CertFile:           "",
+		KeyFile:            "",
+		TrustedCAFile:      "",
+		InsecureSkipVerify: true,
 	}
-	session, err := mgo.DialWithInfo(&info)
+	tlsConfig, err := tlsInfo.ClientConfig()
+	session, err := clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(data["ETCD_HOSTS"], ","),
+		Username:  data["ETCD_USER"],
+		Password:  data["ETCD_PASSWORD"],
+		TLS:       tlsConfig,
+	})
 	c.Assert(err, check.IsNil)
 	defer session.Close()
-	err = session.DB(info.Database).C("mycollection").Insert(bson.M{"some": "stuff"})
+	_, err = session.Get(context.TODO(), data["ETCD_APP_SCHEMA_PATH"]+"/hello")
 	c.Assert(err, check.IsNil)
-	err = session.DB(info.Database).C("mycollection").Remove(bson.M{"some": "stuff"})
 }
 
 func (s *S) TestBindNoAppHost(c *check.C) {
@@ -177,7 +156,7 @@ func (s *S) TestBindNoAppHost(c *check.C) {
 
 func (s *S) TestUnbind(c *check.C) {
 	name := "myapp"
-	env, err := bind(name, "localhost")
+	data, err := bind(name, "localhost")
 	c.Assert(err, check.IsNil)
 	defer func() {
 		database := session().DB(name)
@@ -190,15 +169,19 @@ func (s *S) TestUnbind(c *check.C) {
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
 	c.Assert(recorder.Code, check.Equals, http.StatusOK)
-	info := mgo.DialInfo{
-		Addrs:    []string{"localhost:27017"},
-		Database: env["MONGODB_DATABASE"],
-		Username: env["MONGODB_USER"],
-		Password: env["MONGODB_PASSWORD"],
-		Timeout:  1e9,
-		FailFast: true,
+	tlsInfo := transport.TLSInfo{
+		CertFile:           "",
+		KeyFile:            "",
+		TrustedCAFile:      "",
+		InsecureSkipVerify: true,
 	}
-	_, err = mgo.DialWithInfo(&info)
+	tlsConfig, err := tlsInfo.ClientConfig()
+	_, err = clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(data["ETCD_HOSTS"], ","),
+		Username:  data["ETCD_USER"],
+		Password:  data["ETCD_PASSWORD"],
+		TLS:       tlsConfig,
+	})
 	c.Assert(err, check.NotNil)
 }
 

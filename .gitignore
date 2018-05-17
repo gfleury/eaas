@@ -1,3 +1,5 @@
-mongoapi
+eaas
+debug
+**/debug
 Godeps/_workspace
 Godeps/Readme

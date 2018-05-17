@@ -1,17 +1,16 @@
-// Copyright 2015 mongoapi authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
-	"os"
 
-	"gopkg.in/mgo.v2"
+	"github.com/coreos/etcd/auth/authpb"
+	"github.com/coreos/etcd/clientv3"
 )
+
+var etcdSess *EtcdClient
 
 // dbBind represents a bind stored in the database.
 type dbBind struct {
@@ -25,6 +24,18 @@ type env map[string]string
 
 var locker = multiLocker()
 
+func etcdSession() *EtcdClient {
+	if etcdSess == nil {
+		etcdClientInstance := EtcdClient{}
+		etcdSess = &etcdClientInstance
+		err := etcdSess.newEtcdV3Client()
+		if err != nil {
+			panic(err)
+		}
+	}
+	return etcdSess
+}
+
 func bind(name, appHost string) (env, error) {
 	locker.Lock(name)
 	defer locker.Unlock(name)
@@ -32,22 +43,19 @@ func bind(name, appHost string) (env, error) {
 	if err != nil {
 		return nil, err
 	}
-	hosts := coalesceEnv("MONGODB_PUBLIC_URI", "MONGODB_URI", "127.0.0.1:27017")
+	hosts := coalesceEnv("ETCD_URI", "127.0.0.1:2379")
+
+	secretPath := coalesceEnv("ETCD_SECRET_PATH", "/domain/secret/%s")
+	configPath := coalesceEnv("ETCD_CONFIG_PATH", "/domain/config/%s")
+
 	data := map[string]string{
-		"MONGODB_HOSTS":         hosts,
-		"MONGODB_USER":          bind.User,
-		"MONGODB_PASSWORD":      bind.Password,
-		"MONGODB_DATABASE_NAME": name,
+		"ETCD_HOSTS":              hosts,
+		"ETCD_USER":               bind.User,
+		"ETCD_PASSWORD":           bind.Password,
+		"ETCD_APP_SCHEMA_PATH":    fmt.Sprintf(configPath, name),
+		"ETCD_SECRET_SCHEMA_PATH": fmt.Sprintf(secretPath, name),
 	}
-	var connStringSuffix string
-	if rs := os.Getenv("MONGODB_REPLICA_SET"); rs != "" {
-		data["MONGODB_REPLICA_SET"] = rs
-		connStringSuffix = "?replicaSet=" + rs
-	}
-	data["MONGODB_CONNECTION_STRING"] = fmt.Sprintf(
-		"mongodb://%s:%s@%s/%s%s",
-		bind.User, bind.Password, hosts, name, connStringSuffix,
-	)
+
 	return env(data), nil
 }
 
@@ -66,14 +74,45 @@ func newBind(name, appHost string) (dbBind, error) {
 	return item, nil
 }
 
-func addUser(db, username, password string) error {
-	database := session().DB(db)
-	user := mgo.User{
-		Username: username,
-		Password: password,
-		Roles:    []mgo.Role{mgo.RoleReadWrite},
+func addUser(name, username, password string) error {
+	_, err := etcdSession().client.UserAdd(context.TODO(), username, password)
+	if err != nil {
+		return err
 	}
-	return database.UpsertUser(&user)
+
+	_, err = etcdSession().client.RoleAdd(context.TODO(), username)
+	if err != nil {
+		etcdSession().client.UserDelete(context.TODO(), username)
+		return err
+	}
+
+	secretPath := coalesceEnv("ETCD_SECRET_PATH", "/domain/secret/%s")
+	configPath := coalesceEnv("ETCD_CONFIG_PATH", "/domain/config/%s")
+
+	_, err = etcdSession().client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(configPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(configPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
+	if err != nil {
+		etcdSession().client.UserDelete(context.TODO(), username)
+		etcdSession().client.RoleDelete(context.TODO(), username)
+		return err
+	}
+
+	_, err = etcdSession().client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(secretPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(secretPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
+	if err != nil {
+		etcdSession().client.UserDelete(context.TODO(), username)
+		etcdSession().client.RoleDelete(context.TODO(), username)
+		return err
+	}
+
+	_, err = etcdSession().client.UserGrantRole(context.TODO(), username, username)
+	if err != nil {
+		etcdSession().client.UserDelete(context.TODO(), username)
+		etcdSession().client.RoleDelete(context.TODO(), username)
+		return err
+	}
+
+	_, err = etcdSession().client.Put(context.TODO(), fmt.Sprintf(configPath, name)+"/hello", "Hello World, access granted!")
+
+	return err
 }
 
 func unbind(name, appHost string) error {
@@ -89,12 +128,16 @@ func unbind(name, appHost string) error {
 	if err != nil {
 		return err
 	}
-	return removeUser(name, bind.User)
+	return removeUser(bind.User)
 }
 
-func removeUser(db, user string) error {
-	database := session().DB(db)
-	return database.RemoveUser(user)
+func removeUser(username string) error {
+	_, err := etcdSession().client.UserDelete(context.TODO(), username)
+	if err != nil {
+		return err
+	}
+	_, err = etcdSession().client.RoleDelete(context.TODO(), username)
+	return err
 }
 
 func newPassword() string {
