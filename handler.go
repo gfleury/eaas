@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"gopkg.in/mgo.v2/bson"
 )
 
-func Add(w http.ResponseWriter, r *http.Request) {
+func Add(c *gin.Context) {
+	r := c.Request
+	w := c.Writer
 	name := r.FormValue("name")
 	if name == dbName() {
 		w.WriteHeader(http.StatusForbidden)
@@ -18,70 +21,72 @@ func Add(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func BindApp(w http.ResponseWriter, r *http.Request) error {
-	name := r.URL.Query().Get(":name")
+func BindApp(c *gin.Context) {
+	r := c.Request
+	w := c.Writer
+	name := c.Param("name")
 	appHost := r.FormValue("app-host")
 	if appHost == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Missing app-host")
-		return nil
+		return
 	}
 	env, err := bind(name, appHost)
 	if err != nil {
-		return err
+		c.AbortWithError(500, err)
+		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(env)
+	err = json.NewEncoder(w).Encode(env)
+	if err != nil {
+		c.AbortWithError(500, err)
+	}
 }
 
-func BindUnit(w http.ResponseWriter, r *http.Request) error {
-	return nil
+func BindUnit(c *gin.Context) {
+	return
 }
 
-func UnbindApp(w http.ResponseWriter, r *http.Request) error {
+func UnbindApp(c *gin.Context) {
+	r := c.Request
+	w := c.Writer
 	r.Method = "POST"
-	name := r.URL.Query().Get(":name")
+	name := c.Param("name")
 	appHost := r.FormValue("app-host")
 	err := unbind(name, appHost)
-	if err == nil {
-		w.WriteHeader(http.StatusOK)
+	if err != nil {
+		c.AbortWithError(500, err)
+		return
 	}
-	return err
+	w.WriteHeader(http.StatusOK)
 }
 
-func UnbindUnit(w http.ResponseWriter, r *http.Request) error {
-	return nil
+func UnbindUnit(c *gin.Context) {
+	return
 }
 
-func Remove(w http.ResponseWriter, r *http.Request) error {
-	name := r.URL.Query().Get(":name")
+func Remove(c *gin.Context) {
+	//r := c.Request
+	w := c.Writer
+	name := c.Param("name")
 	collection().RemoveAll(bson.M{"name": name})
 	err := session().DB(name).DropDatabase()
 	if err != nil {
-		return err
+		c.AbortWithError(500, err)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
-	return nil
 }
 
-func Status(w http.ResponseWriter, r *http.Request) error {
+func Status(c *gin.Context) {
+	//r := c.Request
+	w := c.Writer
 	if err := session().Ping(); err != nil {
-		return err
+		c.AbortWithError(500, err)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-	return nil
-}
-
-type Handler func(http.ResponseWriter, *http.Request) error
-
-func (fn Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := fn(w, r); err != nil {
-		if e, ok := err.(*httpError); ok {
-			http.Error(w, e.body, e.code)
-		} else {
-			http.Error(w, err.Error(), 500)
-		}
-	}
+	return
 }
 
 type httpError struct {

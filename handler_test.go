@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -22,12 +20,14 @@ import (
 var _ = check.Suite(&S{})
 
 type S struct {
-	muxer http.Handler
+	muxer       http.Handler
+	userAndPass []string
 }
 
 func Test(t *testing.T) { check.TestingT(t) }
 
 func (s *S) SetUpSuite(c *check.C) {
+	s.userAndPass = strings.Split(coalesceEnv("AUTH", "user:pass"), ":")
 	s.muxer = buildMux()
 }
 
@@ -42,6 +42,7 @@ func (s *S) SetUpTest(c *check.C) {
 func (s *S) TestAdd(c *check.C) {
 	body := strings.NewReader("name=something")
 	request, err := http.NewRequest("POST", "/resources", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	recorder := httptest.NewRecorder()
@@ -53,6 +54,7 @@ func (s *S) TestAddReservedName(c *check.C) {
 	name := dbName()
 	body := strings.NewReader("name=" + name)
 	request, err := http.NewRequest("POST", "/resources", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	recorder := httptest.NewRecorder()
@@ -64,6 +66,7 @@ func (s *S) TestAddReservedName(c *check.C) {
 func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 	body := strings.NewReader("app-host=localhost")
 	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	os.Setenv("MONGODB_URI", "")
@@ -102,6 +105,7 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 func (s *S) TestBind(c *check.C) {
 	body := strings.NewReader("app-host=localhost")
 	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	publicHost := "127.0.0.1:2379"
@@ -146,6 +150,7 @@ func (s *S) TestBind(c *check.C) {
 func (s *S) TestBindNoAppHost(c *check.C) {
 	body := strings.NewReader("")
 	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	recorder := httptest.NewRecorder()
@@ -164,6 +169,7 @@ func (s *S) TestUnbind(c *check.C) {
 	}()
 	body := strings.NewReader("app-host=localhost")
 	request, err := http.NewRequest("DELETE", "/resources/myapp/bind-app", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	recorder := httptest.NewRecorder()
@@ -187,6 +193,7 @@ func (s *S) TestUnbind(c *check.C) {
 
 func (s *S) TestBindUnit(c *check.C) {
 	request, err := http.NewRequest("POST", "/resources/myapp/bind", nil)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
@@ -195,6 +202,7 @@ func (s *S) TestBindUnit(c *check.C) {
 
 func (s *S) TestUnbindUnit(c *check.C) {
 	request, err := http.NewRequest("DELETE", "/resources/myapp/bind", nil)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
@@ -207,6 +215,7 @@ func (s *S) TestRemoveShouldRemoveBinds(c *check.C) {
 	database := session().DB(name)
 	database.AddUser(name, "", false)
 	request, err := http.NewRequest("DELETE", "/resources/myapp", nil)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
@@ -225,50 +234,11 @@ func (s *S) TestStatus(c *check.C) {
 		database.DropDatabase()
 	}()
 	request, err := http.NewRequest("GET", "/resources/myapp/status", nil)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
 	c.Assert(recorder.Code, check.Equals, http.StatusNoContent)
-}
-
-func errorHandler(w http.ResponseWriter, r *http.Request) error {
-	return errors.New("some error")
-}
-
-func httpErrorHandler(w http.ResponseWriter, r *http.Request) error {
-	return &httpError{code: 400, body: "please provide a name"}
-}
-
-func simpleHandler(w http.ResponseWriter, r *http.Request) error {
-	fmt.Fprint(w, "success")
-	return nil
-}
-
-func (s *S) TestHandlerReturns500WhenInternalHandlerReturnsAnError(c *check.C) {
-	recorder := httptest.NewRecorder()
-	request, err := http.NewRequest("GET", "/apps", nil)
-	c.Assert(err, check.IsNil)
-	Handler(errorHandler).ServeHTTP(recorder, request)
-	c.Assert(recorder.Code, check.Equals, 500)
-	c.Assert(recorder.Body.String(), check.Equals, "some error\n")
-}
-
-func (s *S) TestHandlerWithHTTPError(c *check.C) {
-	recorder := httptest.NewRecorder()
-	request, err := http.NewRequest("GET", "/apps", nil)
-	c.Assert(err, check.IsNil)
-	Handler(httpErrorHandler).ServeHTTP(recorder, request)
-	c.Assert(recorder.Code, check.Equals, 400)
-	c.Assert(recorder.Body.String(), check.Equals, "please provide a name\n")
-}
-
-func (s *S) TestHandlerShouldPassAnHandlerWithoutError(c *check.C) {
-	recorder := httptest.NewRecorder()
-	request, err := http.NewRequest("GET", "/apps", nil)
-	c.Assert(err, check.IsNil)
-	Handler(simpleHandler).ServeHTTP(recorder, request)
-	c.Assert(recorder.Code, check.Equals, 200)
-	c.Assert(recorder.Body.String(), check.Equals, "success")
 }
 
 func (s *S) TestHTTPError(c *check.C) {

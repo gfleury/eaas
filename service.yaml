@@ -1,3 +1,6 @@
 id: eaas
+username: user
+password: senha 
+team: admin
 endpoint:
-  production: eaas.tsuru.io
+  production: eaas.local.192.168.64.5.nip.io 

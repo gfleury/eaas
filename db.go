@@ -51,7 +51,7 @@ func coalesceEnv(envs ...string) string {
 }
 
 func dbName() string {
-	return coalesceEnv("MONGOAPI_DBNAME", "mongoapi")
+	return coalesceEnv("MONGOAPI_DBNAME", "eaas")
 }
 
 func collection() *mgo.Collection {
