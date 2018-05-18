@@ -33,24 +33,25 @@ pipeline {
   //}
 
   stages {
-    def environment  = docker.build 'build-node'
-    
-    environment.inside {
-        stage('Run tests') 
-            steps 
-                sh("make test")
-            
+    stage "Prepare environment"
+        def environment  = docker.build 'build-node'
         
-        stage('Run Race check') 
-            steps 
-                sh("make race")
+        environment.inside {
+            stage('Run tests') 
+                steps 
+                    sh("make test")
+                
             
+            stage('Run Race check') 
+                steps 
+                    sh("make race")
+                
+            
+            stage('Run lint check') 
+                steps 
+                    sh("make metalint")
         
-        stage('Run lint check') 
-            steps 
-                sh("make metalint")
-       
-    }    
+        }    
 
     // PR On integration
     stage('Create and Deploy PR integration App') {
