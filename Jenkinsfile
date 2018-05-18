@@ -28,9 +28,9 @@ pipeline {
    */
   agent any
 
-  options {
-    timestamps()
-  }
+  //options {
+  //  timestamps()
+  //}
 
   stages {
 
