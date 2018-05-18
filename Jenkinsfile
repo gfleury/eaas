@@ -34,13 +34,19 @@ pipeline {
 
   stages {
     stage('Run tests') {
-         sh("make test")
+        steps {
+            sh("make test")
+        }
     }
     stage('Run Race check') {
-         sh("make race")
+        steps {
+            sh("make race")
+        }
     }
     stage('Run lint check') {
-         sh("make metalint")
+        steps {
+            sh("make metalint")
+        }
     }
     // PR On integration
     stage('Create and Deploy PR integration App') {
