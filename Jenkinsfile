@@ -21,6 +21,8 @@ def createDeployMessage(env) {
     return env.DEPLOY_MESSAGE
 }
 
+def environment  = docker.build 'build-node'
+
 pipeline {
 
   /*
@@ -34,8 +36,6 @@ pipeline {
 
   stages {
     stage "Prepare environment"
-        def environment  = docker.build 'build-node'
-        
         environment.inside {
             stage('Run tests') 
                 steps 
