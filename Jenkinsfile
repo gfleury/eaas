@@ -35,7 +35,7 @@ pipeline {
   //}
 
   stages {
-    stage "Prepare environment"
+    stage("Prepare environment") {
         environment.inside {
             stage('Run tests') 
                 steps 
@@ -52,7 +52,7 @@ pipeline {
                     sh("make metalint")
         
         }    
-
+    }
     // PR On integration
     stage('Create and Deploy PR integration App') {
 
