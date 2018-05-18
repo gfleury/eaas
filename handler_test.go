@@ -325,8 +325,3 @@ func (s *S) TestStatus(c *check.C) {
 	s.muxer.ServeHTTP(recorder, request)
 	c.Assert(recorder.Code, check.Equals, http.StatusNoContent)
 }
-
-func (s *S) TestHTTPError(c *check.C) {
-	var err error = &httpError{code: 404, body: "not found"}
-	c.Assert(err.Error(), check.Equals, "HTTP error (404): not found")
-}

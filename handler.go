@@ -90,7 +90,7 @@ func Status(c *gin.Context) {
 
 func ListPlans(c *gin.Context) {
 	plans := []Plan{
-		Plan{
+		{
 			Description: "Default ETCD Plan",
 			Name:        "default",
 		},
@@ -110,13 +110,4 @@ func GetServiceInstance(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusNotFound, []string{})
-}
-
-type httpError struct {
-	code int
-	body string
-}
-
-func (e *httpError) Error() string {
-	return fmt.Sprintf("HTTP error (%d): %s", e.code, e.body)
 }

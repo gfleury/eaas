@@ -5,6 +5,7 @@ type Plan struct {
 	Description string `json:"description"`
 }
 
+// nolint: megacheck, deadcode
 type InstanceForm struct {
 	Name string `json:"name"`
 	Plan string `json:"plan"`
@@ -13,6 +14,7 @@ type InstanceForm struct {
 	Tag  []string
 }
 
+// nolint: megacheck, deadcode
 type BindUnitForm struct {
 	AppHost  string `json:"apphost"`
 	AppName  string `json:"appname"`
