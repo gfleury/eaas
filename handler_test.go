@@ -89,7 +89,9 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 	c.Assert(data["ETCD_PASSWORD"], check.Not(check.HasLen), 0)
 	coll := collection()
 	expected := dbBind{
-		AppHost:  "appname",
+		BindAppForm: &BindAppForm{
+			AppName: "appname",
+		},
 		Name:     "myapp",
 		User:     data["ETCD_USER"],
 		Password: data["ETCD_PASSWORD"],
@@ -100,6 +102,7 @@ func (s *S) TestBindShouldReturnLocalhostWhenThePublicHostEnvIsNil(c *check.C) {
 	err = coll.Find(q).One(&bind)
 	c.Assert(err, check.IsNil)
 	c.Assert(bind, check.DeepEquals, expected)
+	unbind("myapp", "appname")
 }
 
 func (s *S) TestBind(c *check.C) {
@@ -113,6 +116,7 @@ func (s *S) TestBind(c *check.C) {
 	recorder := httptest.NewRecorder()
 	s.muxer.ServeHTTP(recorder, request)
 	defer func() {
+		unbind("myapp", "appname")
 		database := session().DB("myapp")
 		database.RemoveUser("myapp")
 		database.DropDatabase()
@@ -135,6 +139,7 @@ func (s *S) TestBind(c *check.C) {
 		InsecureSkipVerify: true,
 	}
 	tlsConfig, err := tlsInfo.ClientConfig()
+	c.Assert(err, check.IsNil)
 	session, err := clientv3.New(clientv3.Config{
 		Endpoints: strings.Split(data["ETCD_HOSTS"], ","),
 		Username:  data["ETCD_USER"],
@@ -144,6 +149,85 @@ func (s *S) TestBind(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer session.Close()
 	_, err = session.Get(context.TODO(), data["ETCD_APP_SCHEMA_PATH"]+"/hello")
+	c.Assert(err, check.IsNil)
+}
+
+func (s *S) TestBindAndUnbindTwoApps(c *check.C) {
+	body := strings.NewReader("app-name=appname1")
+	request, err := http.NewRequest("POST", "/resources/myapp/bind-app", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
+	c.Assert(err, check.IsNil)
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	publicHost := "127.0.0.1:2379"
+	os.Setenv("ETCD_URI", publicHost)
+	recorder := httptest.NewRecorder()
+	s.muxer.ServeHTTP(recorder, request)
+	defer func() {
+		database := session().DB("myapp")
+		database.RemoveUser("myapp")
+		database.DropDatabase()
+		collection().Remove(bson.M{"name": "myapp"})
+	}()
+	c.Assert(recorder.Code, check.Equals, http.StatusCreated)
+	result, err := ioutil.ReadAll(recorder.Body)
+	c.Assert(err, check.IsNil)
+	data := map[string]string{}
+	json.Unmarshal(result, &data)
+	c.Assert(data["ETCD_HOSTS"], check.Equals, publicHost)
+	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/appname1")
+	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/appname1")
+	c.Assert(data["ETCD_USER"], check.Not(check.HasLen), 0)
+	c.Assert(data["ETCD_PASSWORD"], check.Not(check.HasLen), 0)
+	tlsInfo := transport.TLSInfo{
+		CertFile:           "",
+		KeyFile:            "",
+		TrustedCAFile:      "",
+		InsecureSkipVerify: true,
+	}
+	tlsConfig, err := tlsInfo.ClientConfig()
+	c.Assert(err, check.IsNil)
+	session, err := clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(data["ETCD_HOSTS"], ","),
+		Username:  data["ETCD_USER"],
+		Password:  data["ETCD_PASSWORD"],
+		TLS:       tlsConfig,
+	})
+	c.Assert(err, check.IsNil)
+	_, err = session.Get(context.TODO(), data["ETCD_APP_SCHEMA_PATH"]+"/hello")
+	c.Assert(err, check.IsNil)
+	session.Close()
+
+	// Second app
+	body = strings.NewReader("app-name=appname2")
+	request, err = http.NewRequest("POST", "/resources/myapp/bind-app", body)
+	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
+	c.Assert(err, check.IsNil)
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	recorder = httptest.NewRecorder()
+	s.muxer.ServeHTTP(recorder, request)
+	c.Assert(recorder.Code, check.Equals, http.StatusCreated)
+	result, err = ioutil.ReadAll(recorder.Body)
+	c.Assert(err, check.IsNil)
+	data = map[string]string{}
+	json.Unmarshal(result, &data)
+	c.Assert(data["ETCD_HOSTS"], check.Equals, publicHost)
+	c.Assert(data["ETCD_APP_SCHEMA_PATH"], check.Equals, "/domain/config/appname2")
+	c.Assert(data["ETCD_SECRET_SCHEMA_PATH"], check.Equals, "/domain/secret/appname2")
+	c.Assert(data["ETCD_USER"], check.Not(check.HasLen), 0)
+	c.Assert(data["ETCD_PASSWORD"], check.Not(check.HasLen), 0)
+	session, err = clientv3.New(clientv3.Config{
+		Endpoints: strings.Split(data["ETCD_HOSTS"], ","),
+		Username:  data["ETCD_USER"],
+		Password:  data["ETCD_PASSWORD"],
+		TLS:       tlsConfig,
+	})
+	c.Assert(err, check.IsNil)
+	defer session.Close()
+	_, err = session.Get(context.TODO(), data["ETCD_APP_SCHEMA_PATH"]+"/hello")
+	c.Assert(err, check.IsNil)
+	err = unbind("myapp", "appname1")
+	c.Assert(err, check.IsNil)
+	err = unbind("myapp", "appname2")
 	c.Assert(err, check.IsNil)
 }
 
@@ -161,13 +245,13 @@ func (s *S) TestBindNoAppHost(c *check.C) {
 
 func (s *S) TestUnbind(c *check.C) {
 	name := "myapp"
-	data, err := bind(name, "localhost")
+	data, err := bind(name, "appname1")
 	c.Assert(err, check.IsNil)
 	defer func() {
 		database := session().DB(name)
 		database.DropDatabase()
 	}()
-	body := strings.NewReader("app-host=localhost")
+	body := strings.NewReader("app-name=appname1")
 	request, err := http.NewRequest("DELETE", "/resources/myapp/bind-app", body)
 	request.SetBasicAuth(s.userAndPass[0], s.userAndPass[1])
 	c.Assert(err, check.IsNil)
@@ -182,6 +266,7 @@ func (s *S) TestUnbind(c *check.C) {
 		InsecureSkipVerify: true,
 	}
 	tlsConfig, err := tlsInfo.ClientConfig()
+	c.Assert(err, check.IsNil)
 	_, err = clientv3.New(clientv3.Config{
 		Endpoints: strings.Split(data["ETCD_HOSTS"], ","),
 		Username:  data["ETCD_USER"],

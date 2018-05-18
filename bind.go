@@ -14,9 +14,9 @@ var etcdSess *EtcdClient
 
 // dbBind represents a bind stored in the database.
 type dbBind struct {
+	*BindAppForm
 	Name     string `bson:",omitempty"`
 	User     string `bson:",omitempty"`
-	AppHost  string `bson:",omitempty"`
 	Password string `bson:",omitempty"`
 }
 
@@ -24,16 +24,18 @@ type env map[string]string
 
 var locker = multiLocker()
 
-func etcdSession() *EtcdClient {
+func etcdSession() (*EtcdClient, error) {
+	var err error
 	if etcdSess == nil {
 		etcdClientInstance := EtcdClient{}
 		etcdSess = &etcdClientInstance
-		err := etcdSess.newEtcdV3Client()
-		if err != nil {
-			panic(err)
-		}
+		err = etcdSess.newEtcdV3Client()
 	}
-	return etcdSess
+
+	if etcdSess.client == nil {
+		_, err = etcdSess.connection()
+	}
+	return etcdSess, err
 }
 
 func bind(name, appName string) (env, error) {
@@ -66,7 +68,14 @@ func newBind(name, appName string) (dbBind, error) {
 	if err != nil {
 		return dbBind{}, err
 	}
-	item := dbBind{AppHost: appName, User: username, Name: name, Password: password}
+	item := dbBind{
+		BindAppForm: &BindAppForm{
+			AppName: appName,
+		},
+		User:     username,
+		Name:     name,
+		Password: password,
+	}
 	err = collection().Insert(item)
 	if err != nil {
 		return dbBind{}, err
@@ -75,42 +84,46 @@ func newBind(name, appName string) (dbBind, error) {
 }
 
 func addUser(name, username, password string) error {
-	_, err := etcdSession().client.UserAdd(context.TODO(), username, password)
+	session, err := etcdSession()
 	if err != nil {
 		return err
 	}
 
-	_, err = etcdSession().client.RoleAdd(context.TODO(), username)
+	_, err = session.client.UserAdd(context.TODO(), username, password)
 	if err != nil {
-		etcdSession().client.UserDelete(context.TODO(), username)
+		return err
+	}
+	_, err = session.client.RoleAdd(context.TODO(), username)
+	if err != nil {
+		session.client.UserDelete(context.TODO(), username)
 		return err
 	}
 
 	secretPath := coalesceEnv("ETCD_SECRET_PATH", "/domain/secret/%s")
 	configPath := coalesceEnv("ETCD_CONFIG_PATH", "/domain/config/%s")
 
-	_, err = etcdSession().client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(configPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(configPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
+	_, err = session.client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(configPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(configPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
 	if err != nil {
-		etcdSession().client.UserDelete(context.TODO(), username)
-		etcdSession().client.RoleDelete(context.TODO(), username)
+		session.client.UserDelete(context.TODO(), username)
+		session.client.RoleDelete(context.TODO(), username)
 		return err
 	}
 
-	_, err = etcdSession().client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(secretPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(secretPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
+	_, err = session.client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(secretPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(secretPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
 	if err != nil {
-		etcdSession().client.UserDelete(context.TODO(), username)
-		etcdSession().client.RoleDelete(context.TODO(), username)
+		session.client.UserDelete(context.TODO(), username)
+		session.client.RoleDelete(context.TODO(), username)
 		return err
 	}
 
-	_, err = etcdSession().client.UserGrantRole(context.TODO(), username, username)
+	_, err = session.client.UserGrantRole(context.TODO(), username, username)
 	if err != nil {
-		etcdSession().client.UserDelete(context.TODO(), username)
-		etcdSession().client.RoleDelete(context.TODO(), username)
+		session.client.UserDelete(context.TODO(), username)
+		session.client.RoleDelete(context.TODO(), username)
 		return err
 	}
 
-	_, err = etcdSession().client.Put(context.TODO(), fmt.Sprintf(configPath, name)+"/hello", "Hello World, access granted!")
+	_, err = session.client.Put(context.TODO(), fmt.Sprintf(configPath, name)+"/hello", "Hello World, access granted!")
 
 	return err
 }
@@ -119,7 +132,12 @@ func unbind(name, appName string) error {
 	locker.Lock(name)
 	defer locker.Unlock(name)
 	coll := collection()
-	bind := dbBind{Name: name, AppHost: appName}
+	bind := dbBind{
+		BindAppForm: &BindAppForm{
+			AppName: appName,
+		},
+		Name: name,
+	}
 	err := coll.Find(bind).One(&bind)
 	if err != nil {
 		return err
@@ -132,11 +150,16 @@ func unbind(name, appName string) error {
 }
 
 func removeUser(username string) error {
-	_, err := etcdSession().client.UserDelete(context.TODO(), username)
+	session, err := etcdSession()
 	if err != nil {
 		return err
 	}
-	_, err = etcdSession().client.RoleDelete(context.TODO(), username)
+
+	_, err = session.client.UserDelete(context.TODO(), username)
+	if err != nil {
+		return err
+	}
+	_, err = session.client.RoleDelete(context.TODO(), username)
 	return err
 }
 

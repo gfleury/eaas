@@ -11,6 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+LINTER_ARGS_SLOW = \
+        -j 4 --enable-gc -s vendor -e '.*/vendor/.*' --vendor --enable=misspell --enable=gofmt --enable=goimports --enable=unused \
+        --disable=dupl --disable=gocyclo --disable=errcheck --disable=golint --disable=interfacer --disable=gas \
+        --disable=structcheck --disable=gotype --disable=gotypex --deadline=60m --tests
+
 LINTER_ARGS = \
         $(LINTER_ARGS_SLOW) --disable=staticcheck --disable=unused --disable=gosimple
 
@@ -41,4 +46,7 @@ metalint:
 race:
 	go test $(GO_EXTRAFLAGS) -race -i $(PKGS)
 	go test $(GO_EXTRAFLAGS) -race $(PKGS)
+
+fmt:
+	gofmt -l -w ./
 

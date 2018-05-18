@@ -1,5 +1,6 @@
 eaas
 debug
+debug.test
 **/debug
 Godeps/_workspace
 Godeps/Readme

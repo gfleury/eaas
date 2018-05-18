@@ -1,6 +1,6 @@
 id: eaas
 username: user
-password: senha 
+password: pass
 team: admin
 endpoint:
-  production: eaas.local.192.168.64.5.nip.io 
+  production: 192.168.1.167:3030 

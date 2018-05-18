@@ -33,13 +33,21 @@ func buildMux() *gin.Engine {
 		}))
 	}
 
+	// Service Instance
 	authorized.POST("/resources", Add)
-	authorized.POST("/resources/:name/bind-app", BindApp)
-	authorized.DELETE("/resources/:name/bind-app", UnbindApp)
-	authorized.POST("/resources/:name/bind", BindUnit)
-	authorized.DELETE("/resources/:name/bind", UnbindUnit)
+	authorized.GET("/resources/:name", GetServiceInstance)
+	authorized.PUT("/resources/:name", UpdateServiceInstance)
 	authorized.DELETE("/resources/:name", Remove)
 	authorized.GET("/resources/:name/status", Status)
+
+	// Binding
+	authorized.POST("/resources/:name/bind", BindUnit)
+	authorized.DELETE("/resources/:name/bind", UnbindUnit)
+	authorized.POST("/resources/:name/bind-app", BindApp)
+	authorized.DELETE("/resources/:name/bind-app", UnbindApp)
+
+	//
+
 	return m
 }
 

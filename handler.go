@@ -44,7 +44,7 @@ func BindApp(c *gin.Context) {
 }
 
 func BindUnit(c *gin.Context) {
-	return
+
 }
 
 func UnbindApp(c *gin.Context) {
@@ -52,7 +52,6 @@ func UnbindApp(c *gin.Context) {
 	w := c.Writer
 	r.Method = "POST"
 	name := c.Param("name")
-	//appHost := r.FormValue("app-host")
 	appName := r.FormValue("app-name")
 	err := unbind(name, appName)
 	if err != nil {
@@ -63,7 +62,7 @@ func UnbindApp(c *gin.Context) {
 }
 
 func UnbindUnit(c *gin.Context) {
-	return
+
 }
 
 func Remove(c *gin.Context) {
@@ -83,11 +82,34 @@ func Status(c *gin.Context) {
 	//r := c.Request
 	w := c.Writer
 	if err := session().Ping(); err != nil {
-		c.AbortWithError(500, err)
+		c.AbortWithError(http.StatusAccepted, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-	return
+}
+
+func ListPlans(c *gin.Context) {
+	plans := []Plan{
+		Plan{
+			Description: "Default ETCD Plan",
+			Name:        "default",
+		},
+	}
+	c.JSON(http.StatusOK, plans)
+}
+
+func UpdateServiceInstance(c *gin.Context) {
+	c.JSON(http.StatusOK, []string{})
+
+}
+
+func GetServiceInstance(c *gin.Context) {
+	name := c.Param("name")
+	if name == "plans" {
+		ListPlans(c)
+		return
+	}
+	c.JSON(http.StatusNotFound, []string{})
 }
 
 type httpError struct {
