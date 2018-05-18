@@ -114,13 +114,11 @@ node {
 
     }
 
-    }
-
     post {
-    failure {
-        mail to: 'george.fleury@trustyou.com',
-            subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
-            body: "Something is wrong with ${env.BUILD_URL}"
-    }
+        failure {
+            mail to: 'george.fleury@trustyou.com',
+                subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+                body: "Something is wrong with ${env.BUILD_URL}"
+        }
     }
 }
