@@ -21,21 +21,14 @@ def createDeployMessage(env) {
     return env.DEPLOY_MESSAGE
 }
 
-def environment  = docker.build 'build-node'
 
-pipeline {
+//options {
+//  timestamps()
+//}
 
-  /*
-   * Run everything on any agent
-   */
-  agent any
-
-  //options {
-  //  timestamps()
-  //}
-
-  stages {
+node {
     stage("Prepare environment") {
+        def environment  = docker.build 'build-node'
         environment.inside {
             stage('Run tests') 
                 steps 
@@ -56,7 +49,7 @@ pipeline {
     // PR On integration
     stage('Create and Deploy PR integration App') {
 
-      when {
+        when {
         allOf {
             not {
                 branch 'master'
@@ -68,8 +61,8 @@ pipeline {
                 return env.CHANGE_TARGET.equals("integration")
             }
         }
-      }
-      steps {
+        }
+        steps {
         script {
             tsuru.withAPI('integration') {
                 echo "Deploying application in ${tsuru.tsuruApi()}'s"
@@ -78,16 +71,16 @@ pipeline {
                 tsuru.deploy(appName, createDeployMessage(env))
             }
         }
-      }
+        }
 
     }
 
     // Promoting PR to Integration
     stage('Deploying Integration') {
-      when {
+        when {
         branch 'staging'
-      }
-      steps {
+        }
+        steps {
         script {
             tsuru.withAPI('staging') {
                 appName = env.JOB_NAME.tokenize('/')[1]
@@ -96,16 +89,16 @@ pipeline {
                 tsuru.deploy(appName, createDeployMessage(env))
             }
         }
-      }
+        }
 
     }
 
     // Promoting Integration to Production
     stage('Deploying Production') {
-      when {
+        when {
         branch 'release'
-      }
-      steps {
+        }
+        steps {
         timeout(time:5, unit:'DAYS') {
             input message:'Approve deployment?', submitter: 'it-ops'
         }
@@ -117,17 +110,17 @@ pipeline {
                 tsuru.deploy(appName, createDeployMessage(env))
             }
         }
-      }
+        }
 
     }
 
-  }
+    }
 
-  post {
+    post {
     failure {
-      mail to: 'george.fleury@trustyou.com',
-          subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
-          body: "Something is wrong with ${env.BUILD_URL}"
+        mail to: 'george.fleury@trustyou.com',
+            subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+            body: "Something is wrong with ${env.BUILD_URL}"
     }
-  }
+    }
 }
