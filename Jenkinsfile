@@ -33,6 +33,10 @@ stage("Prepare environment") {
         stage('Install stuffs')
             steps
                 sh("sudo apt-get update || true; sudo apt-get install build-essential -y") 
+        stage('Checkout code')
+            steps
+                def scmVars = checkout scm
+
         stage('Run tests') 
             steps 
                 sh("make test")
