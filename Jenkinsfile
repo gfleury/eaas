@@ -30,9 +30,6 @@ def createDeployMessage(env) {
 stage("Prepare environment") {
     def environment  = docker.image 'tsuru/go:latest'
     environment.inside {
-        stage('Install stuffs')
-            steps
-                sh("sudo apt-get update || true; sudo apt-get install build-essential -y") 
         stage('Run tests') 
             steps 
                 sh("make test")
