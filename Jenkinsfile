@@ -26,101 +26,103 @@ def createDeployMessage(env) {
 //  timestamps()
 //}
 
-node {
-    stage("Prepare environment") {
-        def environment  = docker.image 'tsuru/go:latest'
-        environment.inside {
-            stage('Install stuffs')
-                steps
-                    sh("sudo apt-get update && sudo apt-get install build-essential -y") 
-            stage('Run tests') 
-                steps 
-                    sh("make test")
-                
-            stage('Run Race check') 
-                steps 
-                    sh("make race")
-                
+
+stage("Prepare environment") {
+    sh "sudo apt-get
+    def environment  = docker.image 'tsuru/go:latest'
+    environment.inside {
+        stage('Install stuffs')
+            steps
+                sh("sudo apt-get update && sudo apt-get install build-essential -y") 
+        stage('Run tests') 
+            steps 
+                sh("make test")
             
-            stage('Run lint check') 
-                steps 
-                    sh("make metalint")
+        stage('Run Race check') 
+            steps 
+                sh("make race")
+            
         
-        }    
+        stage('Run lint check') 
+            steps 
+                sh("make metalint")
+    
+    }    
+}
+
+// PR On integration
+stage('Create and Deploy PR integration App') {
+
+    when {
+    allOf {
+        not {
+            branch 'master'
+        }
+        expression {
+            return env.BRANCH_NAME.startsWith("PR-")
+        }
+        expression {
+            return env.CHANGE_TARGET.equals("integration")
+        }
     }
-    // PR On integration
-    stage('Create and Deploy PR integration App') {
-
-        when {
-        allOf {
-            not {
-                branch 'master'
-            }
-            expression {
-                return env.BRANCH_NAME.startsWith("PR-")
-            }
-            expression {
-                return env.CHANGE_TARGET.equals("integration")
-            }
-        }
-        }
-        steps {
-        script {
-            tsuru.withAPI('integration') {
-                echo "Deploying application in ${tsuru.tsuruApi()}'s"
-                tsuru.connect()
-                appName = tsuru.createPRApp(env.JOB_NAME.tokenize('/')[1], env.BRANCH_NAME)
-                tsuru.deploy(appName, createDeployMessage(env))
-            }
-        }
-        }
-
     }
-
-    // Promoting PR to Integration
-    stage('Deploying Integration') {
-        when {
-        branch 'staging'
+    steps {
+    script {
+        tsuru.withAPI('integration') {
+            echo "Deploying application in ${tsuru.tsuruApi()}'s"
+            tsuru.connect()
+            appName = tsuru.createPRApp(env.JOB_NAME.tokenize('/')[1], env.BRANCH_NAME)
+            tsuru.deploy(appName, createDeployMessage(env))
         }
-        steps {
-        script {
-            tsuru.withAPI('staging') {
-                appName = env.JOB_NAME.tokenize('/')[1]
-                echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
-                tsuru.connect()
-                tsuru.deploy(appName, createDeployMessage(env))
-            }
-        }
-        }
-
+    }
     }
 
-    // Promoting Integration to Production
-    stage('Deploying Production') {
-        when {
-        branch 'release'
-        }
-        steps {
-        timeout(time:5, unit:'DAYS') {
-            input message:'Approve deployment?', submitter: 'it-ops'
-        }
-        script {
-            tsuru.withAPI('production') {
-                appName = env.JOB_NAME.tokenize('/')[1]
-                echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
-                tsuru.connect()
-                tsuru.deploy(appName, createDeployMessage(env))
-            }
-        }
-        }
+}
 
+// Promoting PR to Integration
+stage('Deploying Integration') {
+    when {
+    branch 'staging'
+    }
+    steps {
+    script {
+        tsuru.withAPI('staging') {
+            appName = env.JOB_NAME.tokenize('/')[1]
+            echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
+            tsuru.connect()
+            tsuru.deploy(appName, createDeployMessage(env))
+        }
+    }
     }
 
-    post {
-        failure {
-            mail to: 'george.fleury@trustyou.com',
-                subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
-                body: "Something is wrong with ${env.BUILD_URL}"
+}
+
+// Promoting Integration to Production
+stage('Deploying Production') {
+    when {
+    branch 'release'
+    }
+    steps {
+    timeout(time:5, unit:'DAYS') {
+        input message:'Approve deployment?', submitter: 'it-ops'
+    }
+    script {
+        tsuru.withAPI('production') {
+            appName = env.JOB_NAME.tokenize('/')[1]
+            echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
+            tsuru.connect()
+            tsuru.deploy(appName, createDeployMessage(env))
         }
+    }
+    }
+
+}
+
+post {
+    failure {
+        mail to: 'george.fleury@trustyou.com',
+            subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+            body: "Something is wrong with ${env.BUILD_URL}"
     }
 }
+
