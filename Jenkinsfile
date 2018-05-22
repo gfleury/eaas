@@ -40,16 +40,16 @@ stage("Prepare environment") {
 
         stage('Run tests') 
             steps 
-                sh("make test")
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make test")
             
         stage('Run Race check') 
             steps 
-                sh("make race")
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make race")
             
         
         stage('Run lint check') 
             steps 
-                sh("make metalint")
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make metalint")
     
     }    
 }
