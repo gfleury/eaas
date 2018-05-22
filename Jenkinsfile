@@ -28,7 +28,6 @@ def createDeployMessage(env) {
 
 
 stage("Prepare environment") {
-    sh "sudo apt-get
     def environment  = docker.image 'tsuru/go:latest'
     environment.inside {
         stage('Install stuffs')
