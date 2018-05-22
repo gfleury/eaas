@@ -33,6 +33,7 @@ stage("Prepare environment") {
         stage('Install stuffs')
             steps
                 sh("sudo apt-get update || true; sudo apt-get install build-essential -y") 
+                sh("sudo /var/lib/tsuru/go/install")
         stage('Checkout code')
             steps
                 def scmVars = checkout scm
