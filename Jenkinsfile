@@ -28,8 +28,11 @@ def createDeployMessage(env) {
 
 
 stage("Prepare environment") {
-    checkout scm
-    def environment  = docker.build 'eaasbuilding:latest'
+    node {
+        checkout scm
+        def environment  = docker.build 'eaasbuilding:latest'
+    }
+    
     environment.inside {
         stage('Checkout code')
             steps
