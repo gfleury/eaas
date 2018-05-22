@@ -30,16 +30,16 @@ def createDeployMessage(env) {
 stage("Prepare environment") {
     def environment  = docker.image 'tsuru/go:latest'
     environment.inside {
-        stage('Install stuffs')
+        stage('Prepare stuffs')
             steps
-                sh("sudo apt-get update || true; sudo apt-get install build-essential -y") 
-                sh("sudo /var/lib/tsuru/go/install")
+                sh("mongod --dbpath /tmp &")
+                sh("HosIP=127.0.0.1 /usr/local/bin/etcd -name etcd0  -advertise-client-urls https://${HostIP}:2379,https://${HostIP}:4001  -listen-client-urls https://0.0.0.0:2379,https://0.0.0.0:4001  -initial-advertise-peer-urls https://${HostIP}:2380  -listen-peer-urls https://0.0.0.0:2380  -initial-cluster-token etcd-cluster-1  -initial-cluster etcd0=https://${HostIP}:2380  -initial-cluster-state new --enable-v2=false --auto-tls --peer-auto-tls &")
         stage('Checkout code')
             steps
                 def scmVars = checkout scm
-
         stage('Run tests') 
             steps 
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' go get || true; go get -t || true")
                 sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make test")
             
         stage('Run Race check') 
