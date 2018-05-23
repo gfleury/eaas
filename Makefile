@@ -9,7 +9,7 @@ LINTER_ARGS = \
 PKGS = $$(go list ./... | grep -v /vendor/)
 
 ifeq ($(GOPATH),)
-IGNORE := $(shell bash -c "eval `gimme stable` export GOPATH=`cd ../..; pwd`; export PATH=${PATH}:${GOPATH}/bin; env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")                         
+IGNORE := $(shell bash -c "eval `gimme stable` export GOPATH=`cd ../..; pwd`; env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")                         
 include makeenv
 endif
 
@@ -28,10 +28,10 @@ test:
 metalint:
 	@if [ -z $$(go version | grep -o 'go1.5') ]; then \
 			go get -u github.com/alecthomas/gometalinter; \
-			gometalinter --install; \
+			${GOPATH}/bin/gometalinter --install; \
 			go install $(PKGS); \
 			go test -i $(PKGS); \
-			gometalinter $(LINTER_ARGS) ./...; \
+			${GOPATH}/bin/gometalinter $(LINTER_ARGS) ./...; \
 	fi
 
 race:
