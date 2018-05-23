@@ -1,6 +1,7 @@
 eaas
 debug
 debug.test
+makeenv
 **/debug
 Godeps/_workspace
 Godeps/Readme
