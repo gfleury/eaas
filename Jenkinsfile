@@ -22,14 +22,12 @@ def createDeployMessage(env) {
 }
 
 
-
-options {
-//  timestamps()
-    skipDefaultCheckout(true)
-}
-
-
 pipeline {
+    options {
+    //  timestamps()
+        skipDefaultCheckout(true)
+    }
+
     agent { dockerfile true }
 
     stages {       
