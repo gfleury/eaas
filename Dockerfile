@@ -5,12 +5,12 @@ RUN sudo apt-get update && sudo apt-get install -y build-essential mongodb
 RUN sudo /var/lib/tsuru/go/install
 
 # grab etcd
-ENV ETCD_VERSION v3.3.5
-ENV ETCD_FILE etcd-$ETCD_VERSION-linux-amd64
-RUN curl --silent -L -o $ETCD_FILE.tar.gz https://github.com/coreos/etcd/releases/download/$ETCD_VERSION/$ETCD_FILE.tar.gz
+WORKDIR /tmp
+RUN curl --silent -L -o etcd-v3.3.5-linux-amd64.tar.gz https://github.com/coreos/etcd/releases/download/v3.3.5/etcd-v3.3.5-linux-amd64.tar.gz
 
 # install and clean up
-RUN tar -zxf $ETCD_FILE.tar.gz
-RUN rm $ETCD_FILE.tar.gz
-RUN sudo mv $ETCD_FILE/etcd /usr/local/bin
-RUN rm -rf $ETCD_FILE
+RUN tar -zxf etcd-v3.3.5-linux-amd64.tar.gz
+RUN rm etcd-v3.3.5-linux-amd64.tar.gz
+RUN sudo mv etcd-v3.3.5-linux-amd64/etcd /usr/local/bin
+RUN rm -rf etcd-v3.3.5-linux-amd64
+WORKDIR /
