@@ -41,21 +41,21 @@ stage("Prepare environment") {
         stage('Prepare stuffs')
             steps
                 sh("mongod --dbpath /tmp &")
-                sh("HosIP=127.0.0.1 /usr/local/bin/etcd -name etcd0  -advertise-client-urls https://${HostIP}:2379,https://${HostIP}:4001  -listen-client-urls https://0.0.0.0:2379,https://0.0.0.0:4001  -initial-advertise-peer-urls https://${HostIP}:2380  -listen-peer-urls https://0.0.0.0:2380  -initial-cluster-token etcd-cluster-1  -initial-cluster etcd0=https://${HostIP}:2380  -initial-cluster-state new --enable-v2=false --auto-tls --peer-auto-tls &")
+                sh("/usr/local/bin/etcd -name etcd0  -advertise-client-urls https://127.0.0.1:2379,https://127.0.0.1:4001  -listen-client-urls https://0.0.0.0:2379,https://0.0.0.0:4001  -initial-advertise-peer-urls https://127.0.0.1:2380  -listen-peer-urls https://0.0.0.0:2380  -initial-cluster-token etcd-cluster-1  -initial-cluster etcd0=https://127.0.0.1:2380  -initial-cluster-state new --enable-v2=false --auto-tls --peer-auto-tls &")
         
         stage('Run tests') 
             steps 
-                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' go get || true; go get -t || true")
-                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make test")
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:\$PATH\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' go get || true; go get -t || true")
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:\$PATH\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make test")
             
         stage('Run Race check') 
             steps 
-                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make race")
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:\$PATH\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make race")
             
         
         stage('Run lint check') 
             steps 
-                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make metalint")
+                sh("GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' PATH=\"/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:\$PATH\" GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env' make metalint")
     
     }    
 }
