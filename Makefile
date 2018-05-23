@@ -22,7 +22,7 @@ LINTER_ARGS = \
 PKGS = $$(go list ./... | grep -v /vendor/)
 
 .EXPORT_ALL_VARIABLES:
-	ifndef GOROOT
+	ifeq ($(GOROOT),)
 		GOROOT='/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' 
 		PATH="/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:${PATH}" 
 		GIMME_ENV='/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env'
