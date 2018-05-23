@@ -9,9 +9,8 @@ LINTER_ARGS = \
 PKGS = $$(go list ./... | grep -v /vendor/)
 
 ifeq ($(GOROOT),)
-.EXPORT_ALL_VARIABLES:
-DF = $$(gimme stable)
-$(DF)
+IGNORE := $(shell bash -c "eval $(gimme stable); env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")                         
+include makeenv  
 endif
 
 all: build
