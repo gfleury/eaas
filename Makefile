@@ -1,16 +1,3 @@
-# Copyright 2016 The Kubernetes Authors All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 LINTER_ARGS_SLOW = \
         -j 4 --enable-gc -s vendor -e '.*/vendor/.*' --vendor --enable=misspell --enable=gofmt --enable=goimports --enable=unused \
         --disable=dupl --disable=gocyclo --disable=errcheck --disable=golint --disable=interfacer --disable=gas \
@@ -21,10 +8,10 @@ LINTER_ARGS = \
 
 PKGS = $$(go list ./... | grep -v /vendor/)
 
-
 ifeq ($(GOROOT),)
 .EXPORT_ALL_VARIABLES:
-eval("gimme stable")
+DF = $$(gimme stable)
+$(DF)
 endif
 
 all: build
