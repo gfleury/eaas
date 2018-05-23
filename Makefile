@@ -8,9 +8,9 @@ LINTER_ARGS = \
 
 PKGS = $$(go list ./... | grep -v /vendor/)
 
-ifeq ($(GOROOT),)
+ifeq ($(GOPATH),)
 IGNORE := $(shell bash -c "eval `gimme stable` export GOPATH=`cd ../..; pwd`; env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")                         
-include makeenv  
+include makeenv
 endif
 
 all: build
@@ -22,6 +22,7 @@ clean:
 	rm -f debug debug.test eaas
 
 test:
+	echo $(GOPATH)
 	go clean 
 	go test -check.v
 
