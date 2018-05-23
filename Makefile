@@ -9,7 +9,7 @@ LINTER_ARGS = \
 PKGS = $$(go list ./... | grep -v /vendor/)
 
 ifeq ($(GOROOT),)
-IGNORE := $(shell bash -c "eval \$(gimme stable); GOPATH=\$(cd ../..; pwd); env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")                         
+IGNORE := $(shell bash -c "eval `gimme stable` export GOPATH=`cd ../..; pwd`; env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")                         
 include makeenv  
 endif
 
