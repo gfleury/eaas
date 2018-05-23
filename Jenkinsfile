@@ -23,6 +23,9 @@ def createDeployMessage(env) {
 
 
 pipeline {
+    triggers { 
+        pollSCM('H */4 * * 1-5') 
+    }
     options {
     //  timestamps()
         skipDefaultCheckout(true)
@@ -31,7 +34,7 @@ pipeline {
     agent { dockerfile true }
 
     stages {       
-        stage('Prepare stuffs') {
+        stage('Checkout and prepare environment for testing') {
             steps {
                 dir('src/eaas') {
                     checkout scm
@@ -47,14 +50,14 @@ pipeline {
                 }
             }
         }
-        stage('Run Race check') {
+        stage('Race check') {
             steps {
                 dir ('src/eaas') {
                     sh("make race") 
                 }
             }
         }
-        stage('Run lint check') {
+        stage('Metalint check') {
             steps {
                 dir ('src/eaas') {
                     sh("make metalint")
