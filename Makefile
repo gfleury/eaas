@@ -24,9 +24,7 @@ PKGS = $$(go list ./... | grep -v /vendor/)
 
 ifeq ($(GOROOT),)
 .EXPORT_ALL_VARIABLES:
-GOROOT := '/home/ubuntu/.gimme/versions/go1.10.2.linux.amd64' 
-PATH := /home/ubuntu/.gimme/versions/go1.10.2.linux.amd64/bin:$(PATH) 
-GIMME_ENV := '/home/ubuntu/.gimme/envs/go1.10.2.linux.amd64.env'
+eval("gimme stable")
 endif
 
 all: build
