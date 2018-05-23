@@ -70,70 +70,60 @@ pipeline {
         stage('Create and Deploy PR integration App') {
 
             when {
-            allOf {
-                not {
-                    branch 'master'
+                allOf {
+                    not { branch 'master' }
+                    expression { return env.BRANCH_NAME.startsWith("PR-") }
+                    expression { return env.CHANGE_TARGET.equals("integration") }
                 }
-                expression {
-                    return env.BRANCH_NAME.startsWith("PR-")
-                }
-                expression {
-                    return env.CHANGE_TARGET.equals("integration")
-                }
-            }
             }
             steps {
-            script {
-                tsuru.withAPI('integration') {
-                    echo "Deploying application in ${tsuru.tsuruApi()}'s"
-                    tsuru.connect()
-                    appName = tsuru.createPRApp(env.JOB_NAME.tokenize('/')[1], env.BRANCH_NAME)
-                    tsuru.deploy(appName, createDeployMessage(env))
+                script {
+                    tsuru.withAPI('integration') {
+                        echo "Deploying application in ${tsuru.tsuruApi()}'s"
+                        tsuru.connect()
+                        appName = tsuru.createPRApp(env.JOB_NAME.tokenize('/')[1], env.BRANCH_NAME)
+                        tsuru.deploy(appName, createDeployMessage(env))
+                    }
                 }
-            }
             }
 
         }
 
         // Promoting PR to Integration
         stage('Deploying Integration') {
-            when {
-            branch 'staging'
-            }
+            when { branch 'staging' }
             steps {
-            script {
-                tsuru.withAPI('staging') {
-                    appName = env.JOB_NAME.tokenize('/')[1]
-                    echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
-                    tsuru.connect()
-                    tsuru.deploy(appName, createDeployMessage(env))
+                script {
+                    tsuru.withAPI('staging') {
+                        appName = env.JOB_NAME.tokenize('/')[1]
+                        echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
+                        tsuru.connect()
+                        tsuru.deploy(appName, createDeployMessage(env))
+                    }
                 }
-            }
             }
 
         }
 
         // Promoting Integration to Production
         stage('Deploying Production') {
-            when {
-            branch 'release'
-            }
+            when { branch 'release' }
             steps {
-            timeout(time:5, unit:'DAYS') {
-                input message:'Approve deployment?', submitter: 'it-ops'
-            }
-            script {
-                tsuru.withAPI('production') {
-                    appName = env.JOB_NAME.tokenize('/')[1]
-                    echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
-                    tsuru.connect()
-                    tsuru.deploy(appName, createDeployMessage(env))
+                timeout(time:5, unit:'DAYS') {
+                    input message:'Approve deployment?', submitter: 'it-ops'
+                }
+                script {
+                    tsuru.withAPI('production') {
+                        appName = env.JOB_NAME.tokenize('/')[1]
+                        echo "Deploying application in ${tsuru.tsuruApi()}'s to deploy application ${appName}"
+                        tsuru.connect()
+                        tsuru.deploy(appName, createDeployMessage(env))
+                    }
                 }
             }
-            }
-
         }
     }
+
     post {
         failure {
             mail to: 'none@whatever.com',
