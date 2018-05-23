@@ -37,8 +37,9 @@ stage("Prepare environment") {
     environment.inside {
         stage('Checkout code')
             steps
-                dir ('src/eaas')
+                dir ('src/eaas') {
                     def scmVars = checkout scm
+                }
         stage('Prepare stuffs')
             steps
                 sh("mongod --dbpath /tmp &")
@@ -46,19 +47,21 @@ stage("Prepare environment") {
         
         stage('Run tests') 
             steps
-                dir ('src/eaas') 
+                dir ('src/eaas') {
                     sh("make test")
+                }
             
-        stage('Run Race check') 
-            steps 
-                dir ('src/eaas') 
+        stage('Run Race check')
+            steps  
+                dir ('src/eaas') {
                     sh("make race") 
+                }
         
         stage('Run lint check') 
             steps
-                dir ('src/eaas') 
+                dir ('src/eaas') {
                     sh("make metalint")
-    
+                }
     }    
 }
 
