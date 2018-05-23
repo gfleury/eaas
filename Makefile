@@ -22,7 +22,6 @@ clean:
 	rm -f debug debug.test eaas
 
 test:
-	echo $(GOPATH)
 	go clean 
 	go test -check.v
 
