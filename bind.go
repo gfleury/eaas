@@ -47,6 +47,8 @@ func bind(name, appName string) (env, error) {
 	}
 	hosts := coalesceEnv("ETCD_URI", "127.0.0.1:2379")
 
+	caCert := coalesceEnv("ETCD_CA_ROOT", "")
+
 	secretPath := coalesceEnv("ETCD_SECRET_PATH", "/domain/secret/%s")
 	configPath := coalesceEnv("ETCD_CONFIG_PATH", "/domain/config/%s")
 
@@ -56,6 +58,10 @@ func bind(name, appName string) (env, error) {
 		"ETCD_PASSWORD":           bind.Password,
 		"ETCD_APP_SCHEMA_PATH":    fmt.Sprintf(configPath, appName),
 		"ETCD_SECRET_SCHEMA_PATH": fmt.Sprintf(secretPath, appName),
+	}
+
+	if len(caCert) > 0 {
+		data["ETCD_CA_ROOT"] = caCert
 	}
 
 	return env(data), nil
