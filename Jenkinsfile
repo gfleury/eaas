@@ -27,11 +27,16 @@ pipeline {
         pollSCM('H */4 * * 1-5') 
     }
     options {
-    //  timestamps()
-        skipDefaultCheckout(true)
+        timestamps()
+    //    skipDefaultCheckout(true)
     }
 
-    agent { dockerfile true }
+    agent { 
+        dockerfile {
+            args '--privileged --net=host'
+            additionalBuildArgs '--network=host'
+        }
+    }
 
     stages {       
         stage('Checkout and prepare environment for testing') {
