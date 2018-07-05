@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
+	"net/url"
 
 	"github.com/coreos/etcd/auth/authpb"
 	"github.com/coreos/etcd/clientv3"
@@ -46,6 +47,11 @@ func bind(name, appName string) (env, error) {
 		return nil, err
 	}
 	hosts := coalesceEnv("ETCD_URI", "127.0.0.1:2379")
+
+	u, err := url.Parse(hosts)
+	if err == nil {
+		hosts = u.Hostname()
+	}
 
 	caCert := coalesceEnv("ETCD_CA_ROOT", "")
 

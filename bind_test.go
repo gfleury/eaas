@@ -8,6 +8,7 @@ import (
 
 func (s *S) TestBindWithCA(c *check.C) {
 	os.Setenv("ETCD_CA_ROOT", "test cert env")
+	os.Setenv("ETCD_URI", "https://localhost:3939")
 	envs, err := bind("test", "test")
 	c.Assert(err, check.IsNil)
 	data := map[string]string{
@@ -21,7 +22,7 @@ func (s *S) TestBindWithCA(c *check.C) {
 	c.Assert(envs, check.DeepEquals, data)
 }
 
-func (s *S) TestBindWithouCA(c *check.C) {
+func (s *S) TestBindWithoutCA(c *check.C) {
 	envs, err := bind("test", "test")
 	c.Assert(err, check.IsNil)
 	data := map[string]string{
