@@ -5,9 +5,9 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"fmt"
+	"log"
 	"net/url"
 
-	"github.com/coreos/etcd/auth/authpb"
 	"github.com/coreos/etcd/clientv3"
 )
 
@@ -114,14 +114,14 @@ func addUser(name, username, password string) error {
 	secretPath := coalesceEnv("ETCD_SECRET_PATH", "/domain/secret/%s")
 	configPath := coalesceEnv("ETCD_CONFIG_PATH", "/domain/config/%s")
 
-	_, err = session.client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(configPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(configPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
+	_, err = session.client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(configPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(configPath, name)), clientv3.PermissionType(clientv3.PermReadWrite))
 	if err != nil {
 		session.client.UserDelete(context.TODO(), username)
 		session.client.RoleDelete(context.TODO(), username)
 		return err
 	}
 
-	_, err = session.client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(secretPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(secretPath, name)), clientv3.PermissionType(authpb.Permission_Type_value["read"]))
+	_, err = session.client.RoleGrantPermission(context.TODO(), username, fmt.Sprintf(secretPath, name), clientv3.GetPrefixRangeEnd(fmt.Sprintf(secretPath, name)), clientv3.PermissionType(clientv3.PermRead))
 	if err != nil {
 		session.client.UserDelete(context.TODO(), username)
 		session.client.RoleDelete(context.TODO(), username)
@@ -169,6 +169,7 @@ func removeUser(username string) error {
 
 	_, err = session.client.UserDelete(context.TODO(), username)
 	if err != nil {
+		log.Printf("Failed to remove user %s", username)
 		return err
 	}
 	_, err = session.client.RoleDelete(context.TODO(), username)
