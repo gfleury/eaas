@@ -70,11 +70,6 @@ func Remove(c *gin.Context) {
 	w := c.Writer
 	name := c.Param("name")
 	collection().RemoveAll(bson.M{"name": name})
-	err := session().DB(name).DropDatabase()
-	if err != nil {
-		c.AbortWithError(500, err)
-		return
-	}
 	w.WriteHeader(http.StatusOK)
 }
 
